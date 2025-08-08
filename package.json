@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "formidable": "^3.5.4",
+    "mammoth": "^1.9.1",
+    "pdf-parse": "^1.1.1",
+    "pptx-parser": "^1.1.7-beta.9"
+  },
+  "devDependencies": {
+    "@types/formidable": "^3.4.5",
+    "@types/pdf-parse": "^1.1.5"
+  }
+}
