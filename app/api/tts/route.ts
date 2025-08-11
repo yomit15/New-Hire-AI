@@ -43,6 +43,15 @@ async function ensureBucketExists() {
   }
 }
 
+function cleanTextForTTS(text: string) {
+  return text
+    .replace(/[#*`>-]/g, '') // Remove markdown symbols
+    .replace(/\n/g, ' ')    // Replace newlines with space
+    .replace(/\s+/g, ' ')   // Collapse multiple spaces
+    .replace(/<[^>]+>/g, '') // Remove HTML tags
+    .trim();
+}
+
 async function synthesizeAndStore(processedModuleId: string) {
   // Fetch module content from processed_modules
   const { data: module, error: moduleError } = await admin
@@ -56,13 +65,13 @@ async function synthesizeAndStore(processedModuleId: string) {
 
   // Truncate very long content to reduce cost and meet TTS limits
   const maxChars = 4500; // Google TTS limit is ~5000 for plain text
-  const text = (module.content || '').slice(0, maxChars);
+  const text = cleanTextForTTS((module.content || '').slice(0, maxChars));
   if (!text) return { error: 'Empty content', status: 400 } as const;
 
   // Prepare Google TTS request
   const requestTTS = {
     input: { text },
-    voice: { languageCode: 'en-US', ssmlGender: 'NEUTRAL' as const },
+    voice: { languageCode: 'en-IN',voiceName: 'en-IN-Chirp3-HD-Algenib', ssmlGender: 'MALE' as const },
     audioConfig: { audioEncoding: 'MP3' as const },
   };
   // Synthesize speech

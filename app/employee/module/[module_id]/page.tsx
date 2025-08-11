@@ -1,4 +1,3 @@
-// ...existing code...
 "use client";
 
 import { useEffect, useState } from "react";
@@ -77,13 +76,16 @@ export default function ModuleContentPage({ params }: { params: { module_id: str
             ) : (
               <div className="text-gray-500">No content available for this module.</div>
             )}
-            {module.audio_url && (
-              <div className="mt-4">
+            {/* Audio section */}
+            <div className="mt-8">
+              {module.audio_url ? (
                 <audio controls src={module.audio_url} className="w-full">
                   Your browser does not support the audio element.
                 </audio>
-              </div>
-            )}
+              ) : (
+                <GenerateAudioButton moduleId={module.id} onAudioGenerated={url => setModule((m: any) => ({ ...m, audio_url: url }))} />
+              )}
+            </div>
           </CardContent>
         </Card>
         <button className="text-blue-600 underline" onClick={() => router.back()}>Back to Training Plan</button>
@@ -103,4 +105,40 @@ function formatContent(content: string) {
   } catch {}
   // Basic: replace line breaks with <br/>
   return content.replace(/\n/g, "<br/>");
+}
+
+// Add GenerateAudioButton component
+function GenerateAudioButton({ moduleId, onAudioGenerated }: { moduleId: string, onAudioGenerated: (url: string) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tts?processed_module_id=${moduleId}`);
+      const data = await res.json();
+      if (res.ok && data.audioUrl) {
+        onAudioGenerated(data.audioUrl);
+      } else {
+        setError(data.error || 'Failed to generate audio');
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Error generating audio');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      <button
+        className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 disabled:opacity-50"
+        onClick={handleGenerate}
+        disabled={loading}
+      >
+        {loading ? 'Generating Audio...' : 'Generate Audio'}
+      </button>
+      {error && <div className="text-red-600 mt-2">{error}</div>}
+    </div>
+  );
 }
