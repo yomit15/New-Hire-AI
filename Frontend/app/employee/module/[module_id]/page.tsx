@@ -1,0 +1,144 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { supabase } from "@/lib/supabase";
+
+export default function ModuleContentPage({ params }: { params: { module_id: string } }) {
+  const moduleId = params.module_id;
+  const [module, setModule] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchModule = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("processed_modules")
+        .select("id, title, content, audio_url")
+        .eq("id", moduleId)
+        .single();
+      if (!error && data) {
+        setModule(data);
+        // Log view to module_progress using processed_module_id
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          const employeeEmail = userData?.user?.email || null;
+          if (employeeEmail) {
+            const { data: emp } = await supabase
+              .from('employees')
+              .select('id')
+              .eq('email', employeeEmail)
+              .maybeSingle();
+            if (emp?.id) {
+              await fetch('/api/module-progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  employee_id: emp.id,
+                  processed_module_id: data.id,
+                  viewed_at: new Date().toISOString(),
+                }),
+              });
+            }
+          }
+        } catch (e) {
+          console.log('[module] progress log error', e);
+        }
+      } else {
+        setModule(null);
+      }
+      setLoading(false);
+    };
+    if (moduleId) fetchModule();
+  }, [moduleId]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading module content...</div>;
+  }
+
+  if (!module) {
+    return <div className="min-h-screen flex items-center justify-center text-red-600">Module not found.</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 px-4 py-8">
+      <div className="max-w-3xl mx-auto">
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>{module.title}</CardTitle>
+            <CardDescription>Module Content</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {module.content ? (
+              <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: formatContent(module.content) }} />
+            ) : (
+              <div className="text-gray-500">No content available for this module.</div>
+            )}
+            {/* Audio section */}
+            <div className="mt-8">
+              {module.audio_url ? (
+                <audio controls src={module.audio_url} className="w-full">
+                  Your browser does not support the audio element.
+                </audio>
+              ) : (
+                <GenerateAudioButton moduleId={module.id} onAudioGenerated={url => setModule((m: any) => ({ ...m, audio_url: url }))} />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <button className="text-blue-600 underline" onClick={() => router.back()}>Back to Training Plan</button>
+      </div>
+    </div>
+  );
+}
+
+// Helper to format content (if it's markdown or plain text)
+function formatContent(content: string) {
+  // If content is JSON, pretty print. If HTML, return as is. If markdown, you can add a markdown parser.
+  try {
+    const parsed = JSON.parse(content);
+    if (typeof parsed === "object") {
+      return `<pre>${JSON.stringify(parsed, null, 2)}</pre>`;
+    }
+  } catch {}
+  // Basic: replace line breaks with <br/>
+  return content.replace(/\n/g, "<br/>");
+}
+
+// Add GenerateAudioButton component
+function GenerateAudioButton({ moduleId, onAudioGenerated }: { moduleId: string, onAudioGenerated: (url: string) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tts?processed_module_id=${moduleId}`);
+      const data = await res.json();
+      if (res.ok && data.audioUrl) {
+        onAudioGenerated(data.audioUrl);
+      } else {
+        setError(data.error || 'Failed to generate audio');
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Error generating audio');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      <button
+        className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 disabled:opacity-50"
+        onClick={handleGenerate}
+        disabled={loading}
+      >
+        {loading ? 'Generating Audio...' : 'Generate Audio'}
+      </button>
+      {error && <div className="text-red-600 mt-2">{error}</div>}
+    </div>
+  );
+}

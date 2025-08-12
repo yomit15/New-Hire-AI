@@ -1,0 +1,13 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/yomit15/New-Hire-AI.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "Module-6"]
+	remote = origin
+	merge = refs/heads/Module-6
