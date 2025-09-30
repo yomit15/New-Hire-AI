@@ -45,12 +45,12 @@ async function processJobs() {
         continue;
       }
       try {
-        console.log(`[JOB] Running migration for module_id=${job.module_id}`);
-        const migrateResult = await migrateProcessedModules();
+  console.log(`[JOB] Running migration for module_id=${job.module_id}`);
+  const migrateResult = await migrateProcessedModules({ moduleId: job.module_id });
         console.log(`[JOB] Migration completed:`, migrateResult.message);
         
-        console.log(`[JOB] Running content generation for module_id=${job.module_id}`);
-        const genResult = await generateModuleContent();
+  console.log(`[JOB] Running content generation for module_id=${job.module_id}`);
+  const genResult = await generateModuleContent({ moduleId: job.module_id });
         console.log(`[JOB] Content generation completed:`, genResult.message);
         
         await supabase.from('content_jobs').update({ status: 'completed', updated_at: new Date() }).eq('id', job.id);
