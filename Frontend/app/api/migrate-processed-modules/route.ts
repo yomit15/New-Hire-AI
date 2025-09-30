@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
   let inserted = 0;
+  let skipped = 0;
   for (const mod of modules || []) {
     if (!mod.ai_modules) continue;
     let aiModulesArr;
@@ -36,22 +37,30 @@ export async function POST(req: NextRequest) {
       const aiMod = aiModulesArr[i];
       const { title, content, section_type } = aiMod;
       const learningStyles = ["CS", "CR", "AS", "AR"];
-      for (const style of learningStyles) {
-        const { error: insertError } = await supabase
-          .from("processed_modules")
-          .insert({
-            original_module_id: mod.id,
-            title: title || `Module ${i + 1}`,
-            content: content || "",
-            section_type: section_type || null,
-            order_index: i,
-            learning_style: style,
-          });
-        if (!insertError) inserted++;
+      const rows = learningStyles.map(style => ({
+        original_module_id: mod.id,
+        title: title || `Module ${i + 1}`,
+        content: content || "",
+        section_type: section_type || null,
+        order_index: i,
+        learning_style: style,
+      }));
+      // Use upsert to avoid duplicates once DB constraint exists
+      const { data: upsertData, error: upsertError } = await supabase
+        .from("processed_modules")
+        .upsert(rows, { onConflict: 'original_module_id,order_index,learning_style', ignoreDuplicates: true })
+        .select();
+      if (upsertError) {
+        console.error('Upsert error processed_modules', upsertError);
+        continue;
+      }
+      if (upsertData) {
+        inserted += upsertData.length; // rows actually inserted or updated
+        // We can't directly know skipped count unless we re-query; optional
       }
     }
   }
-  return NextResponse.json({ message: `Inserted ${inserted} processed modules.` });
+  return NextResponse.json({ message: `Upserted ${inserted} processed modules (idempotent).` });
   } catch (error) {
     console.error("Migration error:", error);
     return NextResponse.json({ error: "Migration failed" }, { status: 500 });
